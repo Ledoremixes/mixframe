@@ -2197,9 +2197,14 @@ function App() {
     <div className="app-shell">
       <header className="topbar">
         <div className="brand">
-          <div className="brand-icon">♪</div>
-          <div>
-            <h1>Show Audio Studio</h1>
+          <img
+            className="brand-logo"
+            src="/img/logo.png"
+            alt="Show Audio Studio"
+          />
+
+          <div className="brand-text">
+            <h1>MixFrame Audio Studio</h1>
             <p>Editor audio multitraccia per creare show</p>
           </div>
         </div>
@@ -2352,9 +2357,8 @@ function App() {
                   {tracks.map((track) => (
                     <div
                       key={track.id}
-                      className={`library-item library-item-with-delete ${
-                        selectedTrackIds.includes(track.id) ? "active" : ""
-                      }`}
+                      className={`library-item library-item-with-delete ${selectedTrackIds.includes(track.id) ? "active" : ""
+                        }`}
                       onClick={(event) => handleTrackClick(event, track)}
                       role="button"
                       tabIndex={0}
