@@ -2814,3 +2814,140 @@ input {
     height: 36px;
   }
 }
+
+/* ================================================= */
+/* MOBILE: strumenti modifica sopra + salvataggio accordion */
+/* ================================================= */
+
+.mobile-edit-toolbar {
+  display: none;
+}
+
+.mobile-save-panel {
+  display: none;
+}
+
+@media (max-width: 800px) {
+  /* Nasconde i vecchi pulsanti Salva/Export dalla topbar mobile */
+  .top-actions {
+    display: none !important;
+  }
+
+  /* Barra strumenti mobile: più utile dei salvataggi mentre si edita */
+  .mobile-edit-toolbar {
+    width: 100%;
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .mobile-edit-btn {
+    min-width: 0;
+    height: 44px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 14px;
+    padding: 0 8px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.075);
+    font-size: 13px;
+    font-weight: 900;
+    line-height: 1;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  }
+
+  .mobile-edit-btn span {
+    color: #ffffff !important;
+  }
+
+  .mobile-edit-btn:hover,
+  .mobile-edit-btn:active {
+    border-color: rgba(124, 92, 255, 0.7);
+    background: rgba(124, 92, 255, 0.22);
+  }
+
+  .mobile-edit-btn.danger {
+    border-color: rgba(255, 77, 109, 0.22);
+    background: rgba(255, 77, 109, 0.13);
+  }
+
+  .mobile-edit-btn.danger:hover,
+  .mobile-edit-btn.danger:active {
+    border-color: rgba(255, 77, 109, 0.55);
+    background: rgba(255, 77, 109, 0.28);
+  }
+
+  .mobile-edit-btn:disabled {
+    opacity: 0.42;
+    cursor: not-allowed;
+    filter: grayscale(0.2);
+  }
+
+  /* Il pannello Salva progetto esiste solo su mobile */
+  .mobile-save-panel {
+    display: block !important;
+  }
+
+  .mobile-save-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  .mobile-save-actions button,
+  .mobile-save-actions select {
+    width: 100%;
+    min-width: 0 !important;
+    min-height: 42px;
+    height: 42px;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+    line-height: 1.1 !important;
+    padding: 0 10px !important;
+    font-size: 12px !important;
+    font-weight: 900 !important;
+    border-radius: 13px !important;
+  }
+
+  .mobile-save-actions .device-save-btn {
+    grid-column: 1 / -1;
+  }
+
+  .mobile-save-actions .export-format-select {
+    text-align-last: center;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  /* Sistema gli spazi tra accordion dopo aver aggiunto Salva progetto */
+  .left-panel,
+  .right-panel,
+  .editor-layout {
+    gap: 8px !important;
+  }
+
+  .left-panel::after,
+  .right-panel::after,
+  .editor-layout::after {
+    content: none !important;
+    display: none !important;
+    height: 0 !important;
+  }
+
+  .inspector-card {
+    margin-bottom: calc(40px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+@media (min-width: 801px) {
+  .mobile-edit-toolbar,
+  .mobile-save-panel {
+    display: none !important;
+  }
+}

@@ -1571,6 +1571,38 @@ function App() {
   }
 
 
+  function duplicateSelectedTracks() {
+    const idsToDuplicate = selectedTrackIdsRef.current.length > 0
+      ? selectedTrackIdsRef.current
+      : selectedTrack
+        ? [selectedTrack.id]
+        : [];
+
+    if (idsToDuplicate.length === 0) return;
+
+    if (isPlaying) {
+      pausePlayback();
+    }
+
+    const duplicatedTracks = tracksRef.current
+      .filter((track) => idsToDuplicate.includes(track.id))
+      .map((track, index) => ({
+        ...track,
+        id: crypto.randomUUID(),
+        name: `${track.name} copia`,
+        start: Number(((track.start || 0) + 0.5 + index * 0.05).toFixed(3)),
+        waveformPeaks: [...(track.waveformPeaks || [])],
+      }));
+
+    if (duplicatedTracks.length === 0) return;
+
+    const duplicatedIds = duplicatedTracks.map((track) => track.id);
+
+    setTracks((prevTracks) => [...prevTracks, ...duplicatedTracks]);
+    setSelectedTrackId(duplicatedIds[0]);
+    setSelectedTrackIds(duplicatedIds);
+  }
+
   function getTrackToSplit() {
     const currentTime = playheadRef.current;
 
@@ -2191,6 +2223,35 @@ function App() {
           <div ref={timeDisplayRef} className="time-display">{formatPreciseTime(playhead)}</div>
         </div>
 
+        <div className="mobile-edit-toolbar" aria-label="Strumenti modifica rapida">
+          <button
+            className="mobile-edit-btn"
+            type="button"
+            onClick={splitClipAtPlayhead}
+            disabled={tracks.length === 0}
+          >
+            ✂ <span>Taglia</span>
+          </button>
+
+          <button
+            className="mobile-edit-btn"
+            type="button"
+            onClick={duplicateSelectedTracks}
+            disabled={selectedTrackIds.length === 0}
+          >
+            ⧉ <span>Duplica</span>
+          </button>
+
+          <button
+            className="mobile-edit-btn danger"
+            type="button"
+            onClick={deleteSelectedTrack}
+            disabled={selectedTrackIds.length === 0}
+          >
+            🗑 <span>Elimina</span>
+          </button>
+        </div>
+
         <div className="top-actions">
           <button
             className="ghost-btn"
@@ -2359,6 +2420,75 @@ function App() {
                   <span>BPM</span>
                   <strong>Auto</strong>
                 </div>
+              </div>
+            </div>
+          </section>
+
+          <section
+            className={`panel-card mobile-collapsible-card mobile-save-panel ${openMobilePanel === "save" ? "mobile-open" : ""
+              }`}
+          >
+            <button
+              className="mobile-panel-toggle"
+              type="button"
+              onClick={() => toggleMobilePanel("save")}
+            >
+              <span>Salva progetto</span>
+              <strong>{openMobilePanel === "save" ? "−" : "+"}</strong>
+            </button>
+
+            <div className="mobile-panel-content">
+              <div className="section-title">
+                <h2>Salvataggio</h2>
+              </div>
+
+              <div className="mobile-save-actions">
+                <button
+                  className="ghost-btn"
+                  type="button"
+                  onClick={saveProjectInBrowser}
+                  disabled={isSavingProject}
+                >
+                  {isSavingProject ? "Salvo..." : "Salva progetto"}
+                </button>
+
+                <button
+                  className="ghost-btn"
+                  type="button"
+                  onClick={loadProjectFromBrowser}
+                  disabled={isLoadingProject}
+                >
+                  {isLoadingProject ? "Carico..." : "Carica progetto"}
+                </button>
+
+                <select
+                  className="export-format-select"
+                  value={exportFormat}
+                  onChange={(event) => setExportFormat(event.target.value)}
+                  disabled={isExporting || isSavingAudioToDevice}
+                  title="Formato export"
+                >
+                  <option value="mp3">MP3</option>
+                  <option value="wav">WAV</option>
+                </select>
+
+                <button
+                  className="primary-btn"
+                  type="button"
+                  onClick={() => exportProjectAudio(exportFormat)}
+                  disabled={tracks.length === 0 || isExporting || isSavingAudioToDevice}
+                >
+                  {isExporting ? "Esporto..." : `Esporta ${exportFormat.toUpperCase()}`}
+                </button>
+
+                <button
+                  className="ghost-btn device-save-btn"
+                  type="button"
+                  onClick={() => saveProjectAudioToDevice(exportFormat)}
+                  disabled={tracks.length === 0 || isExporting || isSavingAudioToDevice}
+                >
+                  {isSavingAudioToDevice ? "Salvo..." : "Salva sul dispositivo"}
+                </button>
               </div>
             </div>
           </section>
