@@ -2,8 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 
 const DEFAULT_PIXELS_PER_SECOND = 24;
-const MIN_PIXELS_PER_SECOND = 8;
-const MAX_PIXELS_PER_SECOND = 72;
+const MIN_PIXELS_PER_SECOND = 4;
+const MAX_PIXELS_PER_SECOND = 220;
+const ZOOM_STEP = 8;
 const MIN_CLIP_DURATION = 0.25;
 
 const effects = [
@@ -354,6 +355,62 @@ async function loadProjectRecord(projectId = DEFAULT_PROJECT_ID) {
   });
 }
 
+
+
+function createId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.createId();
+  }
+
+  return `mix-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function Icon({ name, size = 20, strokeWidth = 1.8 }) {
+  const common = {
+    width: size,
+    height: size,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth,
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    "aria-hidden": "true",
+  };
+
+  const icons = {
+    menu: <><path d="M4 7h16M4 12h11M4 17h16" /></>,
+    music: <><path d="M9 18V5l11-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="17" cy="16" r="3" /></>,
+    upload: <><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M5 20h14" /></>,
+    scissors: <><circle cx="6" cy="7" r="3" /><circle cx="6" cy="17" r="3" /><path d="m8.6 8.5 10.4 6.5M8.6 15.5 19 9" /></>,
+    copy: <><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3" /></>,
+    trash: <><path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="m7 7 1 13h8l1-13" /><path d="M10 11v5M14 11v5" /></>,
+    volume: <><path d="M11 5 6 9H3v6h3l5 4z" /><path d="M15.5 8.5a5 5 0 0 1 0 7" /><path d="M18 6a8.5 8.5 0 0 1 0 12" /></>,
+    fade: <><path d="M3 18h18" /><path d="M4 17c5-1 7-4 9-8 1-2 3-3 7-3" /></>,
+    sparkles: <><path d="m12 3 1.2 3.3L16.5 7.5l-3.3 1.2L12 12l-1.2-3.3-3.3-1.2 3.3-1.2z" /><path d="m18 13 .8 2.2L21 16l-2.2.8L18 19l-.8-2.2L15 16l2.2-.8z" /><path d="m5 13 .7 1.8 1.8.7-1.8.7L5 18l-.7-1.8-1.8-.7 1.8-.7z" /></>,
+    folder: <><path d="M3 6h7l2 2h9v10H3z" /></>,
+    sliders: <><path d="M4 6h7M15 6h5M11 4v4M4 12h3M11 12h9M7 10v4M4 18h10M18 18h2M14 16v4" /></>,
+    help: <><circle cx="12" cy="12" r="9" /><path d="M9.8 9a2.4 2.4 0 1 1 3.7 2c-1 .6-1.5 1-1.5 2" /><path d="M12 17h.01" /></>,
+    zoomIn: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 4 4M10.5 7.5v6M7.5 10.5h6" /></>,
+    zoomOut: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 4 4M7.5 10.5h6" /></>,
+    fit: <><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" /><path d="M8 12h8" /></>,
+    eye: <><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6" /><circle cx="12" cy="12" r="2.5" /></>,
+    play: <><path d="m9 7 8 5-8 5z" /></>,
+    pause: <><path d="M9 7v10M15 7v10" /></>,
+    stop: <><rect x="8" y="8" width="8" height="8" rx="1" /></>,
+    beginning: <><path d="M6 6v12M18 7l-8 5 8 5z" /></>,
+    save: <><path d="M5 4h12l2 2v14H5z" /><path d="M8 4v6h8V4M8 20v-6h8v6" /></>,
+    download: <><path d="M12 4v11" /><path d="m7 11 5 5 5-5" /><path d="M5 20h14" /></>,
+    chevronDown: <><path d="m7 9 5 5 5-5" /></>,
+    close: <><path d="m6 6 12 12M18 6 6 18" /></>,
+    plus: <><path d="M12 5v14M5 12h14" /></>,
+    waveform: <><path d="M3 12h2l1-5 2 10 2-13 2 16 2-11 2 6 2-3h3" /></>,
+    mouse: <><rect x="7" y="3" width="10" height="18" rx="5" /><path d="M12 3v5" /></>,
+  };
+
+  return <svg {...common}>{icons[name] || icons.music}</svg>;
+}
+
 function App() {
   const [tracks, setTracks] = useState([]);
   const [selectedTrackId, setSelectedTrackId] = useState(null);
@@ -369,6 +426,7 @@ function App() {
   const [isLoadingProject, setIsLoadingProject] = useState(false);
   const [playhead, setPlayhead] = useState(0);
   const [pixelsPerSecond, setPixelsPerSecond] = useState(DEFAULT_PIXELS_PER_SECOND);
+  const [wideTimelineMode, setWideTimelineMode] = useState(false);
   const [selectedTrackIds, setSelectedTrackIds] = useState([]);
 
   const [effectSearch, setEffectSearch] = useState("");
@@ -426,7 +484,7 @@ function App() {
       return Math.max(max, track.start + track.duration);
     }, 60);
 
-    return Math.max(90, Math.ceil(maxEnd + 20));
+    return Math.max(120, Math.ceil(maxEnd + 60));
   }, [tracks]);
 
   const seconds = useMemo(() => {
@@ -1245,7 +1303,7 @@ function App() {
         const url = URL.createObjectURL(file);
 
         newTracks.push({
-          id: crypto.randomUUID(),
+          id: createId(),
           name: file.name.replace(/\.[^/.]+$/, ""),
           file,
           url,
@@ -1385,14 +1443,26 @@ function App() {
 
   function zoomInTimeline() {
     setPixelsPerSecond((value) =>
-      Math.min(MAX_PIXELS_PER_SECOND, Math.round(value * 1.25))
+      Math.min(MAX_PIXELS_PER_SECOND, value + ZOOM_STEP)
     );
   }
 
   function zoomOutTimeline() {
     setPixelsPerSecond((value) =>
-      Math.max(MIN_PIXELS_PER_SECOND, Math.round(value / 1.25))
+      Math.max(MIN_PIXELS_PER_SECOND, value - ZOOM_STEP)
     );
+  }
+
+  function fitLongAudioView() {
+    setPixelsPerSecond(8);
+  }
+
+  function detailZoomView() {
+    setPixelsPerSecond(72);
+  }
+
+  function maxDetailZoomView() {
+    setPixelsPerSecond(140);
   }
 
   function getAudibleTracks(trackList) {
@@ -1588,7 +1658,7 @@ function App() {
       .filter((track) => idsToDuplicate.includes(track.id))
       .map((track, index) => ({
         ...track,
-        id: crypto.randomUUID(),
+        id: createId(),
         name: `${track.name} copia`,
         start: Number(((track.start || 0) + 0.5 + index * 0.05).toFixed(3)),
         waveformPeaks: [...(track.waveformPeaks || [])],
@@ -1661,7 +1731,7 @@ function App() {
 
     const rightTrack = {
       ...trackToSplit,
-      id: crypto.randomUUID(),
+      id: createId(),
       name: `${trackToSplit.name} · cut`,
       start: Number(currentTime.toFixed(3)),
       sourceStart: Number((sourceStart + localSplitTime).toFixed(3)),
@@ -1871,7 +1941,7 @@ function App() {
         const url = URL.createObjectURL(file);
 
         newEffects.push({
-          id: `manual-${crypto.randomUUID()}`,
+          id: `manual-${createId()}`,
           name: file.name.replace(/\.[^/.]+$/, ""),
           category: "Importato",
           file: url,
@@ -1921,7 +1991,7 @@ function App() {
       const audioBuffer = await getEffectAudioBuffer(effect);
 
       const newTrack = {
-        id: crypto.randomUUID(),
+        id: createId(),
         name: effect.name,
         file: effect.rawFile || null,
         url: effect.file,
@@ -2094,6 +2164,19 @@ function App() {
   function handleTimelineWheel(event) {
     if (!timelineRef.current) return;
 
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      temporarilyDisableAutoScroll(900);
+
+      if (event.deltaY < 0) {
+        zoomInTimeline();
+      } else {
+        zoomOutTimeline();
+      }
+
+      return;
+    }
+
     const deltaX = event.deltaX || 0;
     const deltaY = event.deltaY || 0;
 
@@ -2194,444 +2277,278 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <img
-            className="brand-logo"
-            src="/img/logo.png"
-            alt="Show Audio Studio"
-          />
+    <div className={`app-shell ${wideTimelineMode ? "focus-mode" : ""}`}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="audio/*"
+        multiple
+        hidden
+        onChange={handleInputChange}
+      />
+      <input
+        ref={effectFileInputRef}
+        type="file"
+        accept="audio/*"
+        multiple
+        hidden
+        onChange={handleEffectFileInputChange}
+      />
 
-          <div className="brand-text">
-            <h1>MixFrame Audio Studio</h1>
-            <p>Editor audio multitraccia per creare show</p>
+      <header className="app-header">
+        <button
+          className="header-icon-button mobile-menu-trigger"
+          type="button"
+          onClick={() => toggleMobilePanel("project")}
+          aria-label="Apri menu progetto"
+        >
+          <Icon name="menu" size={22} />
+        </button>
+
+        <div className="brand-lockup">
+          <div className="brand-mark"><Icon name="waveform" size={22} /></div>
+          <div className="brand-copy">
+            <strong>MixFrame</strong>
+            <span>Audio Studio</span>
           </div>
         </div>
 
-        <div className="transport">
-          <button className="transport-btn secondary" onClick={stopPlayback}>
-            ⏮
-          </button>
-
-          <button
-            className={`transport-btn play ${isPlaying ? "playing" : ""}`}
-            onClick={togglePlayback}
-          >
-            {isPlaying ? "⏸" : "▶"}
-          </button>
-
-          <button className="transport-btn secondary" onClick={stopPlayback}>
-            ■
-          </button>
-
-          <div ref={timeDisplayRef} className="time-display">{formatPreciseTime(playhead)}</div>
+        <div className="project-heading">
+          <span className="project-kicker">PROGETTO AUDIO</span>
+          <strong>{tracks[0]?.name || "Nuovo progetto"}</strong>
         </div>
 
-        <div className="mobile-edit-toolbar" aria-label="Strumenti modifica rapida">
+        <div className="header-actions">
           <button
-            className="mobile-edit-btn"
+            className={`header-icon-button ${followPlayhead ? "active" : ""}`}
             type="button"
-            onClick={splitClipAtPlayhead}
-            disabled={tracks.length === 0}
+            onClick={() => setFollowPlayhead((prev) => !prev)}
+            title="Segui la testina durante la riproduzione"
           >
-            ✂ <span>Taglia</span>
+            <Icon name="eye" size={19} />
           </button>
 
-          <button
-            className="mobile-edit-btn"
-            type="button"
-            onClick={duplicateSelectedTracks}
-            disabled={selectedTrackIds.length === 0}
-          >
-            ⧉ <span>Duplica</span>
-          </button>
-
-          <button
-            className="mobile-edit-btn danger"
-            type="button"
-            onClick={deleteSelectedTrack}
-            disabled={selectedTrackIds.length === 0}
-          >
-            🗑 <span>Elimina</span>
-          </button>
-        </div>
-
-        <div className="top-actions">
-          <button
-            className="ghost-btn"
-            type="button"
-            onClick={saveProjectInBrowser}
-            disabled={isSavingProject}
-          >
-            {isSavingProject ? "Salvo..." : "Salva progetto"}
-          </button>
-          <button
-            className="ghost-btn"
-            type="button"
-            onClick={loadProjectFromBrowser}
-            disabled={isLoadingProject}
-          >
-            {isLoadingProject ? "Carico..." : "Carica"}
-          </button>
-
-          <select
-            className="export-format-select"
-            value={exportFormat}
-            onChange={(event) => setExportFormat(event.target.value)}
-            disabled={isExporting || isSavingAudioToDevice}
-            title="Formato export"
-          >
-            <option value="mp3">MP3</option>
-            <option value="wav">WAV</option>
-          </select>
-
-          <button
-            className="primary-btn"
-            type="button"
-            onClick={() => exportProjectAudio(exportFormat)}
-            disabled={tracks.length === 0 || isExporting || isSavingAudioToDevice}
-          >
-            {isExporting ? "Esporto..." : `Esporta ${exportFormat.toUpperCase()}`}
-          </button>
-
-          <button
-            className="ghost-btn device-save-btn"
-            type="button"
-            onClick={() => saveProjectAudioToDevice(exportFormat)}
-            disabled={tracks.length === 0 || isExporting || isSavingAudioToDevice}
-          >
-            {isSavingAudioToDevice ? "Salvo..." : "Salva sul dispositivo"}
-          </button>
-        </div>
-      </header>
-
-      <main className="editor-layout">
-        <aside className="left-panel">
-          <section
-            className={`panel-card mobile-collapsible-card ${openMobilePanel === "audio" ? "mobile-open" : ""
-              }`}
-          >
-            <button
-              className="mobile-panel-toggle"
-              type="button"
-              onClick={() => toggleMobilePanel("audio")}
-            >
-              <span>Audio</span>
-              <strong>{openMobilePanel === "audio" ? "−" : "+"}</strong>
-            </button>
-
-            <div className="mobile-panel-content">
-              <div className="section-title">
-                <h2>Audio</h2>
-                <button className="small-btn" onClick={handleUploadClick}>
-                  + Importa
-                </button>
-              </div>
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="audio/*"
-                multiple
-                hidden
-                onChange={handleInputChange}
-              />
-
-              <div
-                className={`upload-box ${isDraggingOver ? "drag-over" : ""}`}
-                onDrop={handleDrop}
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onClick={handleUploadClick}
-              >
-                <div className="upload-icon">⬆</div>
-                <strong>
-                  {isImporting ? "Importazione in corso..." : "Trascina qui i file audio"}
-                </strong>
-                <span>MP3, WAV, M4A</span>
-              </div>
-
-              {tracks.length > 0 && (
-                <div className="audio-library">
-                  {tracks.map((track) => (
-                    <div
-                      key={track.id}
-                      className={`library-item library-item-with-delete ${selectedTrackIds.includes(track.id) ? "active" : ""
-                        }`}
-                      onClick={(event) => handleTrackClick(event, track)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          handleTrackClick(event, track);
-                        }
-                      }}
-                    >
-                      <div className="library-item-main">
-                        <span>{track.name}</span>
-                        <small>{formatTime(track.duration)}</small>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="delete-list-btn"
-                        title="Elimina brano"
-                        aria-label={`Elimina ${track.name}`}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          deleteTrackFromLibrary(track.id);
-                        }}
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section
-            className={`panel-card mobile-collapsible-card ${openMobilePanel === "project" ? "mobile-open" : ""
-              }`}
-          >
-            <button
-              className="mobile-panel-toggle"
-              type="button"
-              onClick={() => toggleMobilePanel("project")}
-            >
-              <span>Progetto</span>
-              <strong>{openMobilePanel === "project" ? "−" : "+"}</strong>
-            </button>
-
-            <div className="mobile-panel-content">
-              <div className="section-title">
-                <h2>Progetto</h2>
-              </div>
-
-              <div className="project-info">
-                <div>
-                  <span>Tracce</span>
-                  <strong>{tracks.length}</strong>
-                </div>
-                <div>
-                  <span>Durata audio</span>
-                  <strong>{formatTime(projectAudioEnd)}</strong>
-                </div>
-                <div>
-                  <span>BPM</span>
-                  <strong>Auto</strong>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section
-            className={`panel-card mobile-collapsible-card mobile-save-panel ${openMobilePanel === "save" ? "mobile-open" : ""
-              }`}
-          >
-            <button
-              className="mobile-panel-toggle"
-              type="button"
-              onClick={() => toggleMobilePanel("save")}
-            >
-              <span>Salva progetto</span>
-              <strong>{openMobilePanel === "save" ? "−" : "+"}</strong>
-            </button>
-
-            <div className="mobile-panel-content">
-              <div className="section-title">
-                <h2>Salvataggio</h2>
-              </div>
-
-              <div className="mobile-save-actions">
-                <button
-                  className="ghost-btn"
-                  type="button"
-                  onClick={saveProjectInBrowser}
-                  disabled={isSavingProject}
-                >
-                  {isSavingProject ? "Salvo..." : "Salva progetto"}
-                </button>
-
-                <button
-                  className="ghost-btn"
-                  type="button"
-                  onClick={loadProjectFromBrowser}
-                  disabled={isLoadingProject}
-                >
-                  {isLoadingProject ? "Carico..." : "Carica progetto"}
-                </button>
-
+          <details className="save-menu">
+            <summary className="save-menu-trigger">
+              <Icon name="save" size={18} />
+              <span>Salva</span>
+              <Icon name="chevronDown" size={15} />
+            </summary>
+            <div className="save-menu-popover">
+              <button type="button" onClick={saveProjectInBrowser} disabled={isSavingProject}>
+                <Icon name="save" size={17} />
+                {isSavingProject ? "Salvataggio..." : "Salva progetto"}
+              </button>
+              <button type="button" onClick={loadProjectFromBrowser} disabled={isLoadingProject}>
+                <Icon name="folder" size={17} />
+                {isLoadingProject ? "Caricamento..." : "Apri progetto"}
+              </button>
+              <div className="menu-separator" />
+              <label className="format-row">
+                <span>Formato</span>
                 <select
-                  className="export-format-select"
                   value={exportFormat}
                   onChange={(event) => setExportFormat(event.target.value)}
                   disabled={isExporting || isSavingAudioToDevice}
-                  title="Formato export"
                 >
                   <option value="mp3">MP3</option>
                   <option value="wav">WAV</option>
                 </select>
-
-                <button
-                  className="primary-btn"
-                  type="button"
-                  onClick={() => exportProjectAudio(exportFormat)}
-                  disabled={tracks.length === 0 || isExporting || isSavingAudioToDevice}
-                >
-                  {isExporting ? "Esporto..." : `Esporta ${exportFormat.toUpperCase()}`}
-                </button>
-
-                <button
-                  className="ghost-btn device-save-btn"
-                  type="button"
-                  onClick={() => saveProjectAudioToDevice(exportFormat)}
-                  disabled={tracks.length === 0 || isExporting || isSavingAudioToDevice}
-                >
-                  {isSavingAudioToDevice ? "Salvo..." : "Salva sul dispositivo"}
-                </button>
-              </div>
-            </div>
-          </section>
-        </aside>
-
-        <section className="timeline-area">
-          <div className="timeline-toolbar">
-            <div>
-              <h2>Timeline</h2>
-              <p>
-                Clicca nella timeline per spostare la testina. Trascina le clip
-                per sincronizzare musiche, intro ed effetti.
-              </p>
-            </div>
-
-            <div className="timeline-tools">
-              <button className="tool-btn" type="button" onClick={zoomOutTimeline}>− Zoom</button>
-              <button className="tool-btn" type="button" onClick={zoomInTimeline}>+ Zoom</button>
-              <button className="tool-btn">Snap: ON</button>
-              <span className="zoom-indicator">{pixelsPerSecond}px/s</span>
+              </label>
               <button
-                className="tool-btn cut-btn"
-                onClick={splitClipAtPlayhead}
+                className="menu-primary-action"
                 type="button"
-                title="Taglia la clip selezionata nel punto della testina"
+                onClick={() => exportProjectAudio(exportFormat)}
+                disabled={tracks.length === 0 || isExporting || isSavingAudioToDevice}
               >
-                ✂ Taglia
+                <Icon name="download" size={17} />
+                {isExporting ? "Esportazione..." : `Esporta ${exportFormat.toUpperCase()}`}
               </button>
               <button
-                className={`tool-btn ${followPlayhead ? "active" : ""}`}
-                onClick={() => setFollowPlayhead((prev) => !prev)}
                 type="button"
+                onClick={() => saveProjectAudioToDevice(exportFormat)}
+                disabled={tracks.length === 0 || isExporting || isSavingAudioToDevice}
               >
-                {followPlayhead ? "Segui testina: ON" : "Segui testina: OFF"}
+                <Icon name="download" size={17} />
+                {isSavingAudioToDevice ? "Salvataggio..." : "Salva sul dispositivo"}
+              </button>
+            </div>
+          </details>
+        </div>
+      </header>
+
+      <div className="workspace">
+        <aside className="tool-rail" aria-label="Strumenti editor">
+          <button
+            className={openMobilePanel === "audio" ? "active" : ""}
+            type="button"
+            onClick={() => toggleMobilePanel("audio")}
+            title="Importa e gestisci audio"
+          >
+            <Icon name="upload" />
+            <span>Audio</span>
+          </button>
+          <button type="button" onClick={splitClipAtPlayhead} disabled={tracks.length === 0} title="Taglia alla testina">
+            <Icon name="scissors" />
+            <span>Taglia</span>
+          </button>
+          <button type="button" onClick={duplicateSelectedTracks} disabled={selectedTrackIds.length === 0} title="Duplica selezione">
+            <Icon name="copy" />
+            <span>Duplica</span>
+          </button>
+          <button
+            className="danger-tool"
+            type="button"
+            onClick={deleteSelectedTrack}
+            disabled={selectedTrackIds.length === 0}
+            title="Elimina selezione"
+          >
+            <Icon name="trash" />
+            <span>Elimina</span>
+          </button>
+          <div className="rail-divider" />
+          <button
+            className={openMobilePanel === "edit" ? "active" : ""}
+            type="button"
+            onClick={() => toggleMobilePanel("edit")}
+            title="Volume e dissolvenze"
+          >
+            <Icon name="sliders" />
+            <span>Modifica</span>
+          </button>
+          <button
+            className={openMobilePanel === "effects" ? "active" : ""}
+            type="button"
+            onClick={() => toggleMobilePanel("effects")}
+            title="Libreria effetti"
+          >
+            <Icon name="sparkles" />
+            <span>Effetti</span>
+          </button>
+          <button
+            className={openMobilePanel === "project" ? "active" : ""}
+            type="button"
+            onClick={() => toggleMobilePanel("project")}
+            title="Gestione progetto"
+          >
+            <Icon name="folder" />
+            <span>Progetto</span>
+          </button>
+          <button
+            className="rail-bottom-button"
+            type="button"
+            onClick={() => toggleMobilePanel("help")}
+            title="Guida rapida"
+          >
+            <Icon name="help" />
+            <span>Aiuto</span>
+          </button>
+        </aside>
+
+        <main className="editor-stage">
+          <div className="timeline-header">
+            <div className="timeline-title-group">
+              <button className="add-track-button" type="button" onClick={handleUploadClick}>
+                <Icon name="plus" size={17} />
+                <span>Aggiungi traccia</span>
+              </button>
+              <span className="timeline-stat">{tracks.length} {tracks.length === 1 ? "traccia" : "tracce"}</span>
+              <span className="timeline-stat">{formatTime(projectAudioEnd)}</span>
+            </div>
+
+            <div className="timeline-view-tools">
+              <button type="button" onClick={zoomOutTimeline} title="Riduci zoom"><Icon name="zoomOut" size={18} /></button>
+              <div className="zoom-readout">{pixelsPerSecond}px/s</div>
+              <button type="button" onClick={zoomInTimeline} title="Aumenta zoom"><Icon name="zoomIn" size={18} /></button>
+              <button type="button" onClick={fitLongAudioView} title="Adatta audio lunghi"><Icon name="fit" size={18} /></button>
+              <button
+                className={wideTimelineMode ? "active" : ""}
+                type="button"
+                onClick={() => setWideTimelineMode((prev) => !prev)}
+                title="Modalità concentrazione"
+              >
+                <Icon name="eye" size={18} />
               </button>
             </div>
           </div>
 
           <div
             ref={timelineRef}
-            className={`timeline ${isDraggingClip ? "dragging-clip" : ""} ${isTrimmingClip ? "trimming-clip" : ""
-              } ${isPanningTimeline ? "panning-timeline" : ""}`}
+            className={`timeline ${isDraggingClip ? "dragging-clip" : ""} ${isTrimmingClip ? "trimming-clip" : ""} ${isPanningTimeline ? "panning-timeline" : ""} ${isDraggingOver ? "drag-over" : ""}`}
             onDrop={handleTimelineDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onPointerDown={handleTimelinePointerDown}
             style={{ "--pps": `${pixelsPerSecond}px` }}
           >
-
-            <div
-              className="time-ruler"
-              style={{ width: `${timelineContentWidth}px` }}
-            >
-              <div className="track-label-placeholder"></div>
-
+            <div className="time-ruler" style={{ width: `${timelineContentWidth}px` }}>
+              <div className="track-label-placeholder">
+                <span>TRACCE</span>
+              </div>
               <div className="ruler-scroll">
                 {seconds.map((sec) => (
                   <div key={sec} className="ruler-mark" style={{ width: `${pixelsPerSecond}px` }}>
-                    <span>{sec}s</span>
+                    <span>{sec % 60 === 0 ? `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}` : sec % 5 === 0 ? `${sec}s` : ""}</span>
                   </div>
                 ))}
               </div>
-
               <div
                 ref={rulerPlayheadRef}
                 className="ruler-playhead"
-                style={{
-                  left: `${160 + playhead * pixelsPerSecond}px`,
-                }}
-              />
+                style={{ left: `${160 + playhead * pixelsPerSecond}px` }}
+              >
+                <span>{formatPreciseTime(playhead)}</span>
+              </div>
             </div>
 
-            <div
-              className="tracks-wrapper"
-              style={{ width: `${timelineContentWidth}px` }}
-            >
+            <div className="tracks-wrapper" style={{ width: `${timelineContentWidth}px` }}>
               <div
                 ref={timelinePlayheadRef}
                 className="timeline-playhead"
-                style={{
-                  left: `${160 + playhead * pixelsPerSecond}px`,
-                }}
+                style={{ left: `${160 + playhead * pixelsPerSecond}px` }}
               >
-                <span />
+                <i />
               </div>
 
               {tracks.length === 0 && (
                 <div className="empty-editor-state">
-                  <div>
-                    <h3>Nessuna traccia ancora</h3>
-                    <p>
-                      Importa una canzone, un effetto o una base audio per
-                      iniziare a costruire lo show.
-                    </p>
-                    <button className="primary-btn" onClick={handleUploadClick}>
-                      Importa primo audio
+                  <div className="empty-state-card">
+                    <div className="empty-state-icon"><Icon name="waveform" size={34} /></div>
+                    <h2>Inizia dal tuo primo audio</h2>
+                    <p>Importa un brano e usa la timeline per tagliare, spostare, duplicare e mixare. Puoi anche trascinare i file direttamente qui.</p>
+                    <button className="primary-button" type="button" onClick={handleUploadClick}>
+                      <Icon name="upload" size={18} />
+                      Importa audio
                     </button>
                   </div>
                 </div>
               )}
 
-              {tracks.map((track) => (
+              {tracks.map((track, index) => (
                 <div
                   key={track.id}
-                  className={`track-row ${selectedTrackIds.includes(track.id) ? "selected" : ""
-                    }`}
+                  className={`track-row ${selectedTrackIds.includes(track.id) ? "selected" : ""}`}
                   onClick={(event) => handleTrackClick(event, track)}
                 >
                   <div className="track-label">
-                    <strong>
-                      {track.type === "effect" ? "FX · " : ""}
-                      {track.name}
-                    </strong>
-                    <span>
-                      Start {formatTime(track.start)} · Vol {track.volume}%
-                    </span>
+                    <div className="track-number">{String(index + 1).padStart(2, "0")}</div>
+                    <div className="track-label-copy">
+                      <strong title={track.name}>{track.type === "effect" ? `FX · ${track.name}` : track.name}</strong>
+                      <span>{formatTime(track.duration)} · {track.volume}%</span>
+                    </div>
                     <div className="track-actions">
                       <button
                         type="button"
                         className={track.muted ? "active" : ""}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          toggleTrackFlag(track.id, "muted");
-                        }}
-                        title="Mute"
-                      >
-                        M
-                      </button>
+                        onClick={(event) => { event.stopPropagation(); toggleTrackFlag(track.id, "muted"); }}
+                        title="Silenzia traccia"
+                      >M</button>
                       <button
                         type="button"
                         className={track.solo ? "active" : ""}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          toggleTrackFlag(track.id, "solo");
-                        }}
-                        title="Solo"
-                      >
-                        S
-                      </button>
+                        onClick={(event) => { event.stopPropagation(); toggleTrackFlag(track.id, "solo"); }}
+                        title="Ascolta solo questa traccia"
+                      >S</button>
                     </div>
                   </div>
 
@@ -2641,36 +2558,23 @@ function App() {
                       className={`audio-clip ${track.color} ${selectedTrackIds.includes(track.id) ? "selected-clip" : ""}`}
                       style={{
                         left: `${track.start * pixelsPerSecond}px`,
-                        width: `${Math.max(
-                          track.duration * pixelsPerSecond,
-                          120
-                        )}px`,
+                        width: `${Math.max(track.duration * pixelsPerSecond, 56)}px`,
                       }}
-                      onPointerDown={(event) =>
-                        handleClipPointerDown(event, track)
-                      }
+                      onPointerDown={(event) => handleClipPointerDown(event, track)}
                     >
                       <div
                         className="trim-handle trim-handle-left"
-                        onPointerDown={(event) =>
-                          handleTrimPointerDown(event, track, "left")
-                        }
-                        title="Trascina per tagliare l'inizio"
+                        onPointerDown={(event) => handleTrimPointerDown(event, track, "left")}
+                        title="Accorcia o estendi l'inizio"
                       />
-
                       <div
                         className="trim-handle trim-handle-right"
-                        onPointerDown={(event) =>
-                          handleTrimPointerDown(event, track, "right")
-                        }
-                        title="Trascina per tagliare la fine"
+                        onPointerDown={(event) => handleTrimPointerDown(event, track, "right")}
+                        title="Accorcia o estendi la fine"
                       />
 
                       <div className="clip-header">
-                        <span>
-                          {track.type === "effect" ? "FX · " : ""}
-                          {track.name}
-                        </span>
+                        <span>{track.type === "effect" ? `FX · ${track.name}` : track.name}</span>
                         <span>{formatTime(track.duration)}</span>
                       </div>
 
@@ -2678,58 +2582,25 @@ function App() {
                         {track.fadeIn > 0 && (
                           <div
                             className="fade-visual fade-visual-in"
-                            style={{
-                              width: `${Math.min(
-                                track.fadeIn * pixelsPerSecond,
-                                track.duration * pixelsPerSecond * 0.5
-                              )}px`,
-                            }}
-                          >
-                            <span>{track.fadeIn}s</span>
-                          </div>
+                            style={{ width: `${Math.min(track.fadeIn * pixelsPerSecond, track.duration * pixelsPerSecond * 0.5)}px` }}
+                          ><span>{track.fadeIn}s</span></div>
                         )}
-
                         {track.fadeOut > 0 && (
                           <div
                             className="fade-visual fade-visual-out"
-                            style={{
-                              width: `${Math.min(
-                                track.fadeOut * pixelsPerSecond,
-                                track.duration * pixelsPerSecond * 0.5
-                              )}px`,
-                            }}
-                          >
-                            <span>{track.fadeOut}s</span>
-                          </div>
+                            style={{ width: `${Math.min(track.fadeOut * pixelsPerSecond, track.duration * pixelsPerSecond * 0.5)}px` }}
+                          ><span>{track.fadeOut}s</span></div>
                         )}
                       </div>
 
                       <div className="real-waveform">
-                        <svg
-                          viewBox={`0 0 ${track.waveformPeaks?.length || 1} 100`}
-                          preserveAspectRatio="none"
-                        >
-                          {(track.waveformPeaks || []).map((peak, index) => {
+                        <svg viewBox={`0 0 ${track.waveformPeaks?.length || 1} 100`} preserveAspectRatio="none">
+                          {(track.waveformPeaks || []).map((peak, peakIndex) => {
                             const height = Math.max(6, peak * 86);
                             const y = (100 - height) / 2;
-
-                            return (
-                              <line
-                                key={index}
-                                x1={index}
-                                x2={index}
-                                y1={y}
-                                y2={y + height}
-                                vectorEffect="non-scaling-stroke"
-                              />
-                            );
+                            return <line key={peakIndex} x1={peakIndex} x2={peakIndex} y1={y} y2={y + height} vectorEffect="non-scaling-stroke" />;
                           })}
                         </svg>
-                      </div>
-
-                      <div className="fade-handles">
-                        <span>Fade In {track.fadeIn}s</span>
-                        <span>Fade Out {track.fadeOut}s</span>
                       </div>
                     </div>
                   </div>
@@ -2737,233 +2608,236 @@ function App() {
               ))}
 
               {tracks.length > 0 && (
-                <div className="empty-track">
-                  <div className="track-label muted">Nuova traccia</div>
-                  <div className="track-lane dashed">
-                    Trascina qui audio o effetti
-                  </div>
-                </div>
+                <button className="new-track-row" type="button" onClick={handleUploadClick}>
+                  <span className="new-track-label"><Icon name="plus" size={17} /> Nuova traccia</span>
+                  <span className="new-track-lane">Trascina qui un altro audio o un effetto</span>
+                </button>
               )}
             </div>
           </div>
-        </section>
 
-        <aside className="right-panel">
-          <section
-            className={`panel-card effects-card mobile-collapsible-card ${openMobilePanel === "effects" ? "mobile-open" : ""
-              }`}
-          >
-            <button
-              className="mobile-panel-toggle"
-              type="button"
-              onClick={() => toggleMobilePanel("effects")}
-            >
-              <span>Effetti</span>
-              <strong>{openMobilePanel === "effects" ? "−" : "+"}</strong>
+          <footer className="transport-bar">
+            <div className="transport-left">
+              <button className="transport-control" type="button" onClick={stopPlayback} title="Torna all'inizio">
+                <Icon name="beginning" size={19} />
+              </button>
+              <button className="play-control" type="button" onClick={togglePlayback} aria-label={isPlaying ? "Pausa" : "Riproduci"}>
+                <Icon name={isPlaying ? "pause" : "play"} size={24} strokeWidth={2.2} />
+              </button>
+              <button className="transport-control" type="button" onClick={stopPlayback} title="Stop">
+                <Icon name="stop" size={18} />
+              </button>
+            </div>
+
+            <div className="timecode-block">
+              <span>TESTINA</span>
+              <strong ref={timeDisplayRef}>{formatPreciseTime(playhead)}</strong>
+            </div>
+
+            <div className="transport-range">
+              <span>Inizio</span>
+              <strong>00:00.00</strong>
+              <i />
+              <span>Fine</span>
+              <strong>{formatPreciseTime(projectAudioEnd)}</strong>
+            </div>
+
+            <div className="transport-export">
+              <select
+                value={exportFormat}
+                onChange={(event) => setExportFormat(event.target.value)}
+                disabled={isExporting || isSavingAudioToDevice}
+                aria-label="Formato esportazione"
+              >
+                <option value="mp3">MP3</option>
+                <option value="wav">WAV</option>
+              </select>
+              <button
+                type="button"
+                onClick={() => exportProjectAudio(exportFormat)}
+                disabled={tracks.length === 0 || isExporting || isSavingAudioToDevice}
+              >
+                {isExporting ? "Esporto..." : "Esporta"}
+              </button>
+            </div>
+          </footer>
+        </main>
+
+        {openMobilePanel && (
+          <div className="panel-backdrop" onClick={() => setOpenMobilePanel(null)} />
+        )}
+
+        <aside className={`utility-panel ${openMobilePanel ? "open" : ""}`} aria-hidden={!openMobilePanel}>
+          <div className="utility-panel-header">
+            <div>
+              <span className="panel-eyebrow">STRUMENTI</span>
+              <h2>
+                {openMobilePanel === "audio" && "Audio e tracce"}
+                {openMobilePanel === "edit" && "Modifica clip"}
+                {openMobilePanel === "effects" && "Effetti sonori"}
+                {openMobilePanel === "project" && "Progetto"}
+                {openMobilePanel === "help" && "Guida rapida"}
+              </h2>
+            </div>
+            <button type="button" onClick={() => setOpenMobilePanel(null)} aria-label="Chiudi pannello">
+              <Icon name="close" size={20} />
             </button>
+          </div>
 
-            <div className="mobile-panel-content">
-              <div className="section-title">
-                <h2>Effetti</h2>
-
-                <button
-                  className="small-btn"
-                  type="button"
-                  onClick={() => effectFileInputRef.current?.click()}
-                >
-                  + Importa
+          <div className="utility-panel-body">
+            {openMobilePanel === "audio" && (
+              <>
+                <button className="primary-button full-width" type="button" onClick={handleUploadClick}>
+                  <Icon name="upload" size={18} />
+                  {isImporting ? "Importazione..." : "Importa file audio"}
                 </button>
-              </div>
-
-              <input
-                ref={effectFileInputRef}
-                type="file"
-                accept="audio/*"
-                multiple
-                hidden
-                onChange={handleEffectFileInputChange}
-              />
-
-              <div className="effects-search">
-                <input
-                  value={effectSearch}
-                  placeholder="Cerca online: whoosh, impact, applause..."
-                  onChange={(event) => setEffectSearch(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      searchOnlineEffects();
-                    }
-                  }}
-                />
-
-                <button
-                  type="button"
-                  className="search-effect-btn"
-                  onClick={() => searchOnlineEffects()}
-                  disabled={isSearchingEffects}
+                <div
+                  className={`drop-zone ${isDraggingOver ? "drag-over" : ""}`}
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onClick={handleUploadClick}
                 >
-                  {isSearchingEffects ? "Cerco..." : "Cerca"}
-                </button>
-              </div>
+                  <Icon name="waveform" size={28} />
+                  <strong>Trascina qui i file</strong>
+                  <span>MP3, WAV, M4A, AAC, OGG e FLAC</span>
+                </div>
+                <div className="panel-section-heading">
+                  <span>Tracce nel progetto</span>
+                  <strong>{tracks.length}</strong>
+                </div>
+                <div className="audio-library">
+                  {tracks.length === 0 && <p className="panel-empty-text">Non hai ancora importato nessun audio.</p>}
+                  {tracks.map((track) => (
+                    <button
+                      key={track.id}
+                      type="button"
+                      className={`library-item ${selectedTrackIds.includes(track.id) ? "active" : ""}`}
+                      onClick={(event) => handleTrackClick(event, track)}
+                    >
+                      <span className="library-icon"><Icon name="music" size={17} /></span>
+                      <span className="library-copy"><strong>{track.name}</strong><small>{formatTime(track.duration)}</small></span>
+                      <span
+                        className="library-delete"
+                        role="button"
+                        tabIndex={0}
+                        onClick={(event) => { event.stopPropagation(); deleteTrackFromLibrary(track.id); }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            deleteTrackFromLibrary(track.id);
+                          }
+                        }}
+                        aria-label={`Elimina ${track.name}`}
+                      ><Icon name="trash" size={16} /></span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
-              {effectsError && <p className="effects-error">{effectsError}</p>}
-
-              {availableEffects.length === 0 ? (
-                <div className="empty-effects-state">
-                  <strong>Cerca o importa effetti</strong>
-                  <span>
-                    Puoi cercare online oppure caricare manualmente file MP3, WAV o M4A.
-                  </span>
+            {openMobilePanel === "edit" && (
+              selectedTrack ? (
+                <div className="inspector-content">
+                  <div className="selected-clip-card">
+                    <span className="selected-clip-icon"><Icon name="waveform" size={21} /></span>
+                    <div><strong>{selectedTrack.name}</strong><small>Da {formatTime(selectedTrack.start)} · {formatTime(selectedTrack.duration)}</small></div>
+                  </div>
+                  <label className="range-control">
+                    <span><span><Icon name="volume" size={17} /> Volume</span><strong>{selectedTrack.volume}%</strong></span>
+                    <input type="range" min="0" max="100" value={selectedTrack.volume} onChange={(event) => updateSelectedTrack("volume", Number(event.target.value))} />
+                  </label>
+                  <label className="range-control">
+                    <span><span><Icon name="fade" size={17} /> Dissolvenza in entrata</span><strong>{selectedTrack.fadeIn}s</strong></span>
+                    <input type="range" min="0" max="10" step="0.5" value={selectedTrack.fadeIn} onChange={(event) => updateSelectedTrack("fadeIn", Number(event.target.value))} />
+                  </label>
+                  <label className="range-control">
+                    <span><span><Icon name="fade" size={17} /> Dissolvenza in uscita</span><strong>{selectedTrack.fadeOut}s</strong></span>
+                    <input type="range" min="0" max="10" step="0.5" value={selectedTrack.fadeOut} onChange={(event) => updateSelectedTrack("fadeOut", Number(event.target.value))} />
+                  </label>
+                  <div className="inspector-actions">
+                    <button type="button" onClick={splitClipAtPlayhead}><Icon name="scissors" size={17} /> Taglia alla testina</button>
+                    <button type="button" onClick={duplicateSelectedTracks}><Icon name="copy" size={17} /> Duplica</button>
+                    <button className="danger-action" type="button" onClick={deleteSelectedTrack}><Icon name="trash" size={17} /> Elimina</button>
+                  </div>
                 </div>
               ) : (
+                <div className="panel-empty-state"><Icon name="mouse" size={31} /><strong>Seleziona una clip</strong><span>Tocca o clicca una forma d'onda per modificarne volume e dissolvenze.</span></div>
+              )
+            )}
+
+            {openMobilePanel === "effects" && (
+              <>
+                <button className="secondary-button full-width" type="button" onClick={() => effectFileInputRef.current?.click()}>
+                  <Icon name="upload" size={18} /> Importa effetto dal dispositivo
+                </button>
+                <div className="effect-search-box">
+                  <input
+                    value={effectSearch}
+                    placeholder="Cerca whoosh, impact, applause..."
+                    onChange={(event) => setEffectSearch(event.target.value)}
+                    onKeyDown={(event) => { if (event.key === "Enter") searchOnlineEffects(); }}
+                  />
+                  <button type="button" onClick={() => searchOnlineEffects()} disabled={isSearchingEffects}>
+                    {isSearchingEffects ? "..." : "Cerca"}
+                  </button>
+                </div>
+                {effectsError && <p className="effects-error">{effectsError}</p>}
                 <div className="effects-list">
+                  {availableEffects.length === 0 && <p className="panel-empty-text">Cerca online oppure importa un effetto audio.</p>}
                   {availableEffects.map((effect) => (
-                    <div
-                      key={effect.id}
-                      className="effect-item"
-                      draggable
-                      onDragStart={(event) => handleEffectDragStart(event, effect)}
-                      onClick={(event) => {
-                        if (event.target.closest("button")) return;
-                        if (window.matchMedia("(max-width: 800px), (pointer: coarse)").matches) {
-                          addEffectFromPanel(effect);
-                        }
-                      }}
-                      title="Trascina nella timeline o tocca per aggiungerlo alla testina"
-                    >
-                      <div className="effect-main">
-                        <strong>{effect.name}</strong>
-
-                        <span>
-                          {effect.category}
-                          {effect.creator ? ` · ${effect.creator}` : ""}
-                        </span>
-
-                        {effect.license && (
-                          <small className="effect-license">{effect.license}</small>
-                        )}
-                      </div>
-
+                    <div key={effect.id} className="effect-item" draggable onDragStart={(event) => handleEffectDragStart(event, effect)}>
+                      <div className="effect-copy"><strong>{effect.name}</strong><span>{effect.category}{effect.creator ? ` · ${effect.creator}` : ""}</span></div>
                       <div className="effect-actions">
-                        <button
-                          type="button"
-                          className={previewingEffectId === effect.id ? "previewing" : ""}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            previewEffect(effect);
-                          }}
-                          title={previewingEffectId === effect.id ? "Ferma anteprima" : "Ascolta anteprima"}
-                        >
-                          {previewingEffectId === effect.id ? "■" : "▶"}
-                        </button>
-
-                        <button
-                          type="button"
-                          className="add-effect-btn"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            addEffectFromPanel(effect);
-                          }}
-                          title="Aggiungi alla testina"
-                        >
-                          +
-                        </button>
-
-                        <button
-                          type="button"
-                          className="delete-list-btn"
-                          title="Elimina effetto"
-                          aria-label={`Elimina ${effect.name}`}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            deleteEffectFromLibrary(effect.id);
-                          }}
-                        >
-                          ✕
-                        </button>
+                        <button type="button" onClick={() => previewEffect(effect)} title="Anteprima"><Icon name={previewingEffectId === effect.id ? "stop" : "play"} size={16} /></button>
+                        <button type="button" onClick={() => addEffectFromPanel(effect)} title="Aggiungi alla testina"><Icon name="plus" size={16} /></button>
+                        <button className="danger-icon" type="button" onClick={() => deleteEffectFromLibrary(effect.id)} title="Elimina"><Icon name="trash" size={15} /></button>
                       </div>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-          </section>
-
-          <section className="panel-card inspector-card">
-            <div className="section-title">
-              <h2>Modifica</h2>
-            </div>
-
-            {selectedTrack ? (
-              <div className="inspector-content">
-                <div className="selected-info">
-                  <strong>{selectedTrack.name}</strong>
-                  <span>
-                    Start {formatTime(selectedTrack.start)} · Durata{" "}
-                    {formatTime(selectedTrack.duration)}
-                  </span>
-                  <small>
-                    Sorgente {formatTime(selectedTrack.sourceStart || 0)} → {formatTime((selectedTrack.sourceStart || 0) + selectedTrack.duration)}
-                  </small>
-                </div>
-
-                <label>
-                  Volume: {selectedTrack.volume}%
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={selectedTrack.volume}
-                    onChange={(event) =>
-                      updateSelectedTrack("volume", Number(event.target.value))
-                    }
-                  />
-                </label>
-
-                <label>
-                  Fade In: {selectedTrack.fadeIn}s
-                  <input
-                    type="range"
-                    min="0"
-                    max="10"
-                    step="0.5"
-                    value={selectedTrack.fadeIn}
-                    onChange={(event) =>
-                      updateSelectedTrack("fadeIn", Number(event.target.value))
-                    }
-                  />
-                </label>
-
-                <label>
-                  Fade Out: {selectedTrack.fadeOut}s
-                  <input
-                    type="range"
-                    min="0"
-                    max="10"
-                    step="0.5"
-                    value={selectedTrack.fadeOut}
-                    onChange={(event) =>
-                      updateSelectedTrack("fadeOut", Number(event.target.value))
-                    }
-                  />
-                </label>
-
-                <button className="ghost-btn" type="button" onClick={splitClipAtPlayhead}>
-                  ✂ Taglia alla testina
-                </button>
-
-                <button className="danger-btn" onClick={deleteSelectedTrack}>
-                  Elimina traccia
-                </button>
-              </div>
-            ) : (
-              <p className="empty-inspector">
-                Seleziona una traccia per modificarla.
-              </p>
+              </>
             )}
-          </section>
+
+            {openMobilePanel === "project" && (
+              <>
+                <div className="project-summary-grid">
+                  <div><span>Tracce</span><strong>{tracks.length}</strong></div>
+                  <div><span>Durata</span><strong>{formatTime(projectAudioEnd)}</strong></div>
+                  <div><span>Zoom</span><strong>{pixelsPerSecond}px/s</strong></div>
+                  <div><span>Formato</span><strong>{exportFormat.toUpperCase()}</strong></div>
+                </div>
+                <div className="project-action-list">
+                  <button type="button" onClick={saveProjectInBrowser} disabled={isSavingProject}><Icon name="save" size={18} /> {isSavingProject ? "Salvataggio..." : "Salva progetto nel browser"}</button>
+                  <button type="button" onClick={loadProjectFromBrowser} disabled={isLoadingProject}><Icon name="folder" size={18} /> {isLoadingProject ? "Caricamento..." : "Apri progetto salvato"}</button>
+                  <label className="project-format-select"><span>Formato esportazione</span><select value={exportFormat} onChange={(event) => setExportFormat(event.target.value)}><option value="mp3">MP3</option><option value="wav">WAV</option></select></label>
+                  <button className="primary-project-action" type="button" onClick={() => exportProjectAudio(exportFormat)} disabled={tracks.length === 0 || isExporting}><Icon name="download" size={18} /> {isExporting ? "Esportazione..." : `Esporta ${exportFormat.toUpperCase()}`}</button>
+                  <button type="button" onClick={() => saveProjectAudioToDevice(exportFormat)} disabled={tracks.length === 0 || isSavingAudioToDevice}><Icon name="download" size={18} /> {isSavingAudioToDevice ? "Salvataggio..." : "Salva sul dispositivo"}</button>
+                </div>
+              </>
+            )}
+
+            {openMobilePanel === "help" && (
+              <div className="help-list">
+                <div><strong>1</strong><span><b>Importa</b> un brano dal pulsante Audio o trascinalo nella timeline.</span></div>
+                <div><strong>2</strong><span><b>Sposta</b> una clip trascinando la sua forma d'onda.</span></div>
+                <div><strong>3</strong><span><b>Taglia</b> posizionando la testina e premendo Taglia.</span></div>
+                <div><strong>4</strong><span><b>Accorcia</b> il brano trascinando le maniglie alle estremità.</span></div>
+                <div><strong>5</strong><span><b>Zoom:</b> usa i pulsanti oppure Ctrl + rotellina.</span></div>
+              </div>
+            )}
+          </div>
         </aside>
-      </main>
+
+        <nav className="mobile-action-dock" aria-label="Azioni rapide mobile">
+          <button type="button" onClick={splitClipAtPlayhead} disabled={tracks.length === 0}><Icon name="scissors" size={20} /><span>Taglia</span></button>
+          <button type="button" onClick={duplicateSelectedTracks} disabled={selectedTrackIds.length === 0}><Icon name="copy" size={20} /><span>Duplica</span></button>
+          <button className="mobile-play-button" type="button" onClick={togglePlayback}><Icon name={isPlaying ? "pause" : "play"} size={24} /><span>{isPlaying ? "Pausa" : "Play"}</span></button>
+          <button className="mobile-danger-button" type="button" onClick={deleteSelectedTrack} disabled={selectedTrackIds.length === 0}><Icon name="trash" size={20} /><span>Elimina</span></button>
+          <button type="button" onClick={() => toggleMobilePanel("edit")}><Icon name="sliders" size={20} /><span>Strumenti</span></button>
+        </nav>
+      </div>
     </div>
   );
 }

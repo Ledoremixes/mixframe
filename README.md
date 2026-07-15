@@ -1,16 +1,38 @@
-# React + Vite
+# MixFrame Audio Studio
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Editor audio multitraccia frontend-only realizzato con React e Vite.
 
-Currently, two official plugins are available:
+## Novità dell’interfaccia
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- timeline a tutta larghezza con intestazioni delle tracce fisse;
+- barra strumenti verticale su desktop;
+- comandi rapidi Taglia, Duplica ed Elimina;
+- pannelli laterali per audio, modifica, effetti e progetto;
+- controlli di zoom e modalità concentrazione;
+- barra di riproduzione ed esportazione sempre visibile;
+- interfaccia mobile dedicata con dock inferiore e pannelli a scorrimento;
+- maniglie di ritaglio più grandi e facili da utilizzare su touchscreen;
+- salvataggio progetto ed esportazione MP3/WAV raccolti nel menu Salva.
 
-## React Compiler
+## Avvio locale
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm install
+npm run dev
+```
 
-## Expanding the ESLint configuration
+Apri l’indirizzo mostrato dal terminale, normalmente `http://localhost:5173`.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Build
+
+```bash
+npm run build
+```
+
+## Deploy Vercel
+
+Importa la cartella o la repository in Vercel usando:
+
+- Framework: Vite
+- Build command: `npm run build`
+- Output directory: `dist`
