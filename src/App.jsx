@@ -358,11 +358,53 @@ async function loadProjectRecord(projectId = DEFAULT_PROJECT_ID) {
 
 
 function createId() {
-  if (globalThis.crypto?.randomUUID) {
-    return globalThis.createId();
+  const cryptoApi = globalThis.crypto;
+
+  if (cryptoApi?.randomUUID) {
+    return cryptoApi.randomUUID();
+  }
+
+  if (cryptoApi?.getRandomValues) {
+    const randomBytes = new Uint32Array(2);
+    cryptoApi.getRandomValues(randomBytes);
+    return `mix-${Date.now().toString(36)}-${Array.from(randomBytes)
+      .map((value) => value.toString(36))
+      .join("-")}`;
   }
 
   return `mix-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function decodeAudioDataCompat(audioContext, arrayBuffer) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+
+    const handleSuccess = (audioBuffer) => {
+      if (settled) return;
+      settled = true;
+      resolve(audioBuffer);
+    };
+
+    const handleError = (error) => {
+      if (settled) return;
+      settled = true;
+      reject(error instanceof Error ? error : new Error("Formato audio non supportato dal browser."));
+    };
+
+    try {
+      const result = audioContext.decodeAudioData(
+        arrayBuffer.slice(0),
+        handleSuccess,
+        handleError
+      );
+
+      if (result?.then) {
+        result.then(handleSuccess).catch(handleError);
+      }
+    } catch (error) {
+      handleError(error);
+    }
+  });
 }
 
 function Icon({ name, size = 20, strokeWidth = 1.8 }) {
@@ -418,6 +460,7 @@ function App() {
   const [isDraggingClip, setIsDraggingClip] = useState(false);
   const [isTrimmingClip, setIsTrimmingClip] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isSavingAudioToDevice, setIsSavingAudioToDevice] = useState(false);
@@ -972,7 +1015,7 @@ function App() {
 
     if (item.sourceKind === "blob" && item.blob) {
       const arrayBuffer = await item.blob.arrayBuffer();
-      const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+      const audioBuffer = await decodeAudioDataCompat(ctx, arrayBuffer);
       const url = URL.createObjectURL(item.blob);
 
       return { audioBuffer, url, file: item.blob };
@@ -1285,53 +1328,79 @@ function App() {
   }
 
   async function handleAudioFiles(fileList) {
-    const files = Array.from(fileList).filter(isAudioFile);
+    const allFiles = Array.from(fileList || []);
+    const files = allFiles.filter(isAudioFile);
 
-    if (files.length === 0) return;
+    setImportError("");
+
+    if (files.length === 0) {
+      setImportError("Il file selezionato non sembra essere un audio supportato.");
+      return;
+    }
 
     setIsImporting(true);
 
-    const ctx = getAudioContext();
     const newTracks = [];
+    const failedFiles = [];
     const baseIndex = tracksRef.current.length;
 
-    for (const file of files) {
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
-        const waveformPeaks = buildWaveformPeaks(audioBuffer);
-        const url = URL.createObjectURL(file);
+    try {
+      const ctx = getAudioContext();
 
-        newTracks.push({
-          id: createId(),
-          name: file.name.replace(/\.[^/.]+$/, ""),
-          file,
-          url,
-          audioBuffer,
-          waveformPeaks,
-          sourceStart: 0,
-          start: 0,
-          duration: audioBuffer.duration,
-          volume: 100,
-          fadeIn: 0,
-          fadeOut: 0,
-          color: clipColors[(baseIndex + newTracks.length) % clipColors.length],
-          muted: false,
-          solo: false,
-        });
-      } catch (error) {
-        console.error("Errore import audio:", error);
+      if (ctx.state === "suspended") {
+        await ctx.resume().catch(() => undefined);
       }
+
+      for (const file of files) {
+        try {
+          const arrayBuffer = await file.arrayBuffer();
+          const audioBuffer = await decodeAudioDataCompat(ctx, arrayBuffer);
+          const waveformPeaks = buildWaveformPeaks(audioBuffer);
+          const url = URL.createObjectURL(file);
+
+          newTracks.push({
+            id: createId(),
+            name: file.name.replace(/\.[^/.]+$/, ""),
+            file,
+            url,
+            audioBuffer,
+            waveformPeaks,
+            sourceStart: 0,
+            start: 0,
+            duration: audioBuffer.duration,
+            volume: 100,
+            fadeIn: 0,
+            fadeOut: 0,
+            color: clipColors[(baseIndex + newTracks.length) % clipColors.length],
+            muted: false,
+            solo: false,
+          });
+        } catch (error) {
+          failedFiles.push(file.name);
+          console.error(`Errore import audio (${file.name}):`, error);
+        }
+      }
+
+      if (newTracks.length > 0) {
+        setTracks((prevTracks) => [...prevTracks, ...newTracks]);
+
+        if (!selectedTrackId) {
+          setSelectedTrackId(newTracks[0].id);
+          setSelectedTrackIds([newTracks[0].id]);
+        }
+      }
+
+      if (failedFiles.length > 0) {
+        setImportError(
+          `Non sono riuscito a leggere: ${failedFiles.join(", ")}. Prova a convertirli in MP3 o WAV.`
+        );
+      }
+    } catch (error) {
+      console.error("AudioContext non disponibile:", error);
+      setImportError("Il browser non consente la lettura audio. Prova con Chrome, Edge o Safari aggiornato.");
+    } finally {
+      setIsImporting(false);
     }
-
-    setTracks((prevTracks) => [...prevTracks, ...newTracks]);
-
-    if (!selectedTrackId && newTracks.length > 0) {
-      setSelectedTrackId(newTracks[0].id);
-      setSelectedTrackIds([newTracks[0].id]);
-    }
-
-    setIsImporting(false);
   }
 
   function handleUploadClick() {
@@ -1766,7 +1835,7 @@ function App() {
     }
 
     const arrayBuffer = await response.arrayBuffer();
-    return await ctx.decodeAudioData(arrayBuffer.slice(0));
+    return await decodeAudioDataCompat(ctx, arrayBuffer);
   }
 
   async function getEffectAudioBuffer(effect) {
@@ -1937,7 +2006,7 @@ function App() {
     for (const file of files) {
       try {
         const arrayBuffer = await file.arrayBuffer();
-        const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+        const audioBuffer = await decodeAudioDataCompat(ctx, arrayBuffer);
         const url = URL.createObjectURL(file);
 
         newEffects.push({
@@ -2578,18 +2647,34 @@ function App() {
                         <span>{formatTime(track.duration)}</span>
                       </div>
 
-                      <div className="clip-fade-layer">
+                      <div className="clip-fade-layer" aria-hidden="true">
                         {track.fadeIn > 0 && (
                           <div
                             className="fade-visual fade-visual-in"
-                            style={{ width: `${Math.min(track.fadeIn * pixelsPerSecond, track.duration * pixelsPerSecond * 0.5)}px` }}
-                          ><span>{track.fadeIn}s</span></div>
+                            style={{
+                              width: `${Math.max(4, Math.min(track.fadeIn, track.duration) * pixelsPerSecond)}px`,
+                            }}
+                          >
+                            <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                              <path className="fade-area" d="M0 100 C24 100 58 72 100 0 L100 100 Z" />
+                              <path className="fade-line" d="M0 100 C24 100 58 72 100 0" />
+                            </svg>
+                            <span className="fade-badge fade-badge-in">IN {track.fadeIn}s</span>
+                          </div>
                         )}
                         {track.fadeOut > 0 && (
                           <div
                             className="fade-visual fade-visual-out"
-                            style={{ width: `${Math.min(track.fadeOut * pixelsPerSecond, track.duration * pixelsPerSecond * 0.5)}px` }}
-                          ><span>{track.fadeOut}s</span></div>
+                            style={{
+                              width: `${Math.max(4, Math.min(track.fadeOut, track.duration) * pixelsPerSecond)}px`,
+                            }}
+                          >
+                            <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+                              <path className="fade-area" d="M0 0 C42 28 76 100 100 100 L0 100 Z" />
+                              <path className="fade-line" d="M0 0 C42 28 76 100 100 100" />
+                            </svg>
+                            <span className="fade-badge fade-badge-out">OUT {track.fadeOut}s</span>
+                          </div>
                         )}
                       </div>
 
@@ -2687,10 +2772,20 @@ function App() {
           <div className="utility-panel-body">
             {openMobilePanel === "audio" && (
               <>
-                <button className="primary-button full-width" type="button" onClick={handleUploadClick}>
+                <button
+                  className="primary-button full-width"
+                  type="button"
+                  onClick={handleUploadClick}
+                  disabled={isImporting}
+                >
                   <Icon name="upload" size={18} />
                   {isImporting ? "Importazione..." : "Importa file audio"}
                 </button>
+                {importError && (
+                  <div className="import-error" role="alert">
+                    {importError}
+                  </div>
+                )}
                 <div
                   className={`drop-zone ${isDraggingOver ? "drag-over" : ""}`}
                   onDrop={handleDrop}
